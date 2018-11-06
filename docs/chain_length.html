@@ -27,12 +27,20 @@ table.display td {
     text-align: right;
 }
 
+.closing_visible {
+    visibility: visible;
+}
+
+.closing_hidden {
+    visibility: hidden;
+}
+
 @media print {
     body {
         margin: 0em;
     }
 
-    p#submit, p#desc, table#data, hr#sep, p#check {
+    p#submit, p#desc, table#data, hr#sep {
         display: none;
     }
 }
@@ -56,11 +64,12 @@ function chain_length_calculate(front_teeth, rear_teeth, chain_stay_len, pitch) 
 
 
 function result_show(front_min, front_max, rear_min, rear_max,
-                          chain_stay_len, pitch, hide_odd) {
+                          chain_stay_len, pitch) {
     const coma_pitch = pitch * 2;
-    const heading = ["リア", "チェーン長<br />[mm]",
-                     "リンク数", "整数リンク", "整数リンク<br />差分[mm]",
-                     "コマ数", "整数コマ", "整数コマ<br />差分[mm]"];
+    const heading = ["リア", "チェーン<br />長[mm]",
+                     "リンク", "短リンク", "短リンク<br />差[mm]",
+                     "長リンク", "長リンク<br />差[mm]",
+                     "コマ", "長コマ", "長コマ<br />差[mm]"];
     function append_values(parent, values) {
         const tr = document.createElement("tr");
         for (let i of values) {
@@ -91,7 +100,13 @@ function result_show(front_min, front_max, rear_min, rear_max,
         table.setAttribute("id", "table_" + front);
 
         const tr = document.createElement("tr");
-        add_td(tr, "フロント " + front).setAttribute("colspan", "8");
+        const td = add_td(tr, "フロント " + front +
+            ' <span id="close_' + front + '"' +
+            ' onclick="remove_table(\'table_' + front + '\')"' +
+            ' class="closing_hidden">[閉じる]</span>');
+        td.setAttribute("colspan", "10");
+        td.setAttribute("onmouseover", "show_close('close_" + front + "');");
+        td.setAttribute("onmouseout", "hide_close('close_" + front + "');");
         table.appendChild(tr);
 
         append_values(table, heading);
@@ -101,19 +116,19 @@ function result_show(front_min, front_max, rear_min, rear_max,
                                             chain_stay_len, pitch);
 
             const links = chain_length / pitch;
-            const links_int = Math.ceil(links);
-            if (hide_odd && (links_int % 2) == 1) {
-                // ignore odd links
-                continue;
-            }
-            const links_diff = links_int * pitch - chain_length;
+            const links_short = Math.floor(links);
+            const links_short_diff = links_short * pitch - chain_length;
+            const links_long = Math.ceil(links);
+            const links_long_diff = links_long * pitch - chain_length;
 
             const comas = chain_length / coma_pitch;
             const comas_int = Math.ceil(comas);
             const comas_diff = comas_int * coma_pitch - chain_length;
 
             append_values(table, [rear, chain_length.toFixed(1),
-                    links.toFixed(1), links_int, links_diff.toFixed(2),
+                    links.toFixed(1),
+                    links_short, links_short_diff.toFixed(2),
+                    links_long, links_long_diff.toFixed(2),
                     comas.toFixed(1), comas_int, comas_diff.toFixed(2)]);
         }
 
@@ -131,7 +146,6 @@ function calculate() {
     let rear_max = $value("rear_max");
     const chain_stay_len = $value("chain_stay_len");
     const pitch = $value("pitch");
-    const hide_odd = $("hide_odd").checked;
 
     // check value
     if (front_min < 0 || front_max < 0 ||
@@ -157,7 +171,31 @@ function calculate() {
     }
 
     return result_show(front_min, front_max, rear_min, rear_max,
-                            chain_stay_len, pitch, hide_odd);
+                            chain_stay_len, pitch);
+}
+
+
+function show_close(e) {
+    const span = $(e);
+    if (span != null) {
+        span.setAttribute("class", "closing_visible");
+    }
+}
+
+
+function hide_close(e) {
+    const span = $(e);
+    if (span != null) {
+        span.setAttribute("class", "closing_hidden");
+    }
+}
+
+
+function remove_table(e) {
+    const table = $(e);
+    if (table != null) {
+        table.parentNode.removeChild(table);
+    }
 }
 
 
@@ -193,12 +231,9 @@ function submit() {
 </tr>
 <tr>
 <td>チェーンピッチ</td>
-<td><input type="number" id="pitch" value="12.7" min="1" max="100" class="numeric"> mm</td>
+<td><input type="number" id="pitch" value="12.7" min="1" max="100" step="0.1" class="numeric"> mm</td>
 </tr>
 </table>
-<p id="check">
-<input type="checkbox" id="hide_odd" value="" onclick="">奇数リンク(半コマ、オフセットリンク使用)を非表示
-</p>
 <p id="submit">
 <input type="button" id="SUBMIT" value="計算" onclick="submit();"/>
 </p>
