@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+<title>内装ギア計算 v0.1</title>
+<style type="text/css">
+@media screen and (min-width: 640px) {
+    body {
+        margin: 1em 1em;
+        width: 700px;
+    }
+}
+
+table.display {
+    border: solid 1px #000000;
+    border-collapse: collapse;
+}
+
+table.display td {
+    border: solid 1px #000000;
+    padding: 0.25em 0.5em;
+}
+
+.numeric {
+    width: 5em;
+}
+
+.valuelist {
+    vertical-align: top;
+}
+
+.value {
+    text-align: right;
+}
+
+@media print {
+    body {
+        margin: 0em;
+    }
+
+    p#desc, table#data, hr#sep {
+        display: none;
+    }
+
+    input, select {
+        border-style: none;
+        -moz-appearance: textfield;
+    }
+
+    input::-webkit-outer-spin-button,
+    input::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+    }
+}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.min.js"></script>
+<script type="text/javascript">
+function $(id) { return document.getElementById(id); }
+function $value(id) { return $(id).value; }
+
+//Manufacture model,"",number of gears,total%,gears
+const hubs = [
+["Shimano INTER-3","",3,186,0.733,1.000,1.360],
+["Shimano INTER-3-B","",3,158,0.632,0.741,1.000],
+["Shimano INTER-4","",4,184,1.000,1.240,1.500,1.840],
+["Shimano INTER-5","",5,206,0.750,1.001,1.159,1.335,1.545],
+["Shimano INTER-5E","",5,263,1.000,1.277,1.622,2.070,2.630],
+["Shimano INTER-7","",7,244,0.632,0.741,0.843,0.989,1.145,1.335,1.545],
+["Shimano INTER-8","",8,307,0.527,0.644,0.748,0.851,1.000,1.223,1.419,1.615],
+["Shimano INTER-11","",11,409,0.527,0.681,0.770,0.878,0.995,1.134,1.292,1.462,1.667,1.888,2.153],
+["NuVinci N330","",2,330,0.500,1.650],
+["NuVinci N360","",2,360,0.500,1.800],
+["NuVinci N380","",2,380,0.500,1.900],
+["Enviolo CT/CO","",2,310,0.550,1.700],
+["Enviolo TR/SP/CA","",2,380,0.500,1.900],
+["Pinion P1.18","",18,636,0.549,0.613,0.680,0.758,0.840,0.943,1.053,1.176,1.316,1.449,1.613,1.818,2.041,2.273,2.500,2.778,3.125,3.448],
+["Pinion P1.12","",12,600,0.549,0.641,0.758,0.893,1.053,1.235,1.449,1.724,2.041,2.381,2.778,3.333],
+["Pinion P1.9XR","",9,568,0.549,0.680,0.840,1.053,1.316,1.613,2.041,2.500,3.125],
+["Pinion P1.9CR","",9,364,0.769,0.901,1.053,1.235,1.449,1.695,2.041,2.381,2.778],
+["Pinion C1.12","",12,600,0.549,0.641,0.758,0.893,1.053,1.235,1.449,1.724,2.041,2.381,2.778,3.333],
+["Pinion C1.9XR","",9,568,0.549,0.680,0.840,1.053,1.316,1.613,2.041,2.500,3.125],
+//["Pinion C1.6","",6,295,],
+["Rohloff Speedhub","",14,526,0.279,0.316,0.360,0.409,0.464,0.528,0.600,0.682,0.774,0.881,1.000,1.135,1.292,1.467],
+["Sturmey-Archer 2 SPEED","",2,138,1.000,1.380],
+["Sturmey-Archer 3 SPEED","",3,177,0.750,1.000,1.330],
+["Sturmey-Archer 3 SPEED-X","",3,160,0.625,0.750,1.000],
+["Sturmey-Archer 4 SPEED","",4,210,1.000,1.280,1.640,2.100],
+["Sturmey-Archer 5 SPEED","",5,256,0.625,0.750,1.000,1.333,1.600],
+["Sturmey-Archer 8 SPEED","",8,325,1.000,1.300,1.480,1.690,1.920,2.200,2.500,3.250],
+//["Sram 2-Speed","",2,136,1.000,1.360],
+//["Kindernay XIV","",14,543,]
+];
+
+
+function hub_find(hub_id) {
+    for (let hub of hubs) {
+        if (hub[0] == hub_id) {
+            return hub;
+        }
+    }
+    return null;
+}
+
+
+function get_options(hub_id) {
+    return {
+        title: {
+            display: true,
+            position: 'bottom',
+            text: hub_id,
+        },
+        scales: {
+            xAxes: [{
+                display: true,
+                scaleLabel: {
+                    display: true,
+                    labelString: "ギア",
+                }
+            }],
+            yAxes: [{
+                id: 'y-axis-1',
+                display: true,
+                position: 'left',
+                scaleLabel: {
+                    display: true,
+                    labelString: "GD値[m]",
+                }
+            },{
+                id: 'y-axis-2',
+                display: true,
+                position: 'right',
+                scaleLabel: {
+                    display: true,
+                    labelString: "速度[km/h]",
+                }
+            }],
+        },
+    };
+}
+
+
+function get_data(gears, gds, speeds) {
+    return {
+        labels: gears,
+        datasets: [{
+            label: "GD 値",
+            backgroundColor: 'rgb(0, 0, 0)',
+            borderColor: 'rgb(0, 0, 0)',
+            fill: false,
+            lineTension: 0,
+            pointRadius: 5,
+            data: gds,
+            yAxisID: 'y-axis-1',
+        },{
+            label: "速度",
+            backgroundColor: 'rgb(255, 0, 0)',
+            borderColor: 'rgb(255, 0, 0)',
+            fill: false,
+            lineTension: 0,
+            pointRadius: 5,
+            data: speeds,
+            yAxisID: 'y-axis-2',
+        }],
+    };
+}
+
+
+let chart = null;
+
+window.addEventListener("load", function(ev) {
+    // update hub selector
+    const sel = $("hub");
+    sel.innerHTML = "";
+    for (let hub of hubs) {
+        sel.add(new Option(hub[0], hub[0]));
+    }
+
+    update();
+});
+
+
+function update() {
+    const hub_id = $value("hub");
+    const hub = hub_find(hub_id);
+    if (hub == null) {
+        return;
+    }
+    const gear_ratio = $("gear_ratio");
+    gear_ratio.innerHTML = "";
+
+    const front = $value("front");
+    const rear = $value("rear");
+    const cir = $value("tyre_cir");
+    const cir_meter = cir / 1000;
+    const cadence = $value("cadence");
+
+    function add_td(tr, col) {
+        const td1 = document.createElement("td");
+        td1.innerHTML = col;
+        td1.setAttribute("class", "value");
+        tr.appendChild(td1);
+    }
+
+    // show hub gear ratio
+    function add_tr(col1, col2, col3, col4) {
+        const tr = document.createElement("tr");
+        add_td(tr, col1);
+        add_td(tr, col2);
+        add_td(tr, col3);
+        add_td(tr, col4);
+        gear_ratio.appendChild(tr);
+    }
+
+    add_tr("ギア", "ギア比", "GD値[m]", "速度[km/h]");
+
+    const gears = [];
+    const gds = [];
+    const ratios = [];
+    const speeds = [];
+
+    const cog_ratio = front * 1.0 / rear;
+    const gear_count = hub[2];
+    for (let i = 0; i < gear_count; i++) {
+        const ratio = hub[4 + i];
+        const total_ratio = cog_ratio * hub[4 + i];
+        const gd = total_ratio * cir_meter;
+        const speed = gd * cadence * 60 / 1000.;
+
+        add_tr(i + 1, ratio.toFixed(3),
+               gd.toFixed(2), speed.toFixed(1));
+        gears[i] = i + 1;
+        gds[i] = gd.toFixed(2);
+        ratios[i] = ratio.toFixed(3);
+        speeds[i] = speed.toFixed(1);
+    }
+
+    if (chart == null) {
+        chart = new Chart($("chart").getContext("2d"), {
+            type: "line",
+            data: get_data(gears, gds, speeds),
+            options: get_options(hub_id),
+        });
+    } else {
+        chart.options.title.text = hub_id;
+        chart.data = get_data(gears, gds, speeds);
+        chart.update();
+    }
+}
+</script>
+</head>
+<body>
+<h2>内装ギア計算</h2>
+<p id="desc">内装ハブ自転車のGD値を計算します。</p>
+<table>
+<tr><td class="valuelist">
+<table>
+<tr><td>フロントギア歯数</td>
+<td><input type="number" id="front" value="52" min="1" max="100" class="numeric" onChange="update();"></td>
+</tr>
+<tr>
+<td>リアギア歯数</td>
+<td><input type="number" id="rear" value="15" min="1" max="100" class="numeric" onChange="update();"></td>
+</tr>
+<tr><td>タイヤ周長[mm]</td>
+<td><input type="number" id="tyre_cir" value="1545" min="1" max="3000" class="numeric" onChange="update();"></td>
+</tr>
+<tr><td>ケイデンス</td>
+<td><input type="number" id="cadence" value="70" min="1" max="500" class="numeric" onChange="update();"></td>
+</tr>
+</table>
+</td>
+<td class="valuelist">
+<table>
+<tr>
+<td>内装ハブ</td>
+<td><select id="hub" onChange="update();"></select></td>
+</tr>
+</table>
+<table id="gear_ratio" class="display">
+</table>
+</td></tr>
+</table>
+<hr id="sep" />
+<div id="error"></div>
+<div id="result">
+</div>
+<canvas id="chart"></canvas>
+</body>
+</html>

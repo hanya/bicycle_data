@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+<title>内装ハブチェーン長計算 v0.1</title>
+<style type="text/css">
+body {
+    margin: 1em 1em;
+    width: 700px;
+}
+
+table.display {
+    border: solid 1px #000000;
+    border-collapse: collapse;
+    margin-bottom: 1em;
+}
+
+table.display td {
+    border: solid 1px #000000;
+    padding: 0.25em 0.5em;
+}
+
+.numeric {
+    width: 5em;
+}
+
+.value {
+    text-align: right;
+}
+
+@media print {
+    body {
+        margin: 0em;
+    }
+
+    p#submit, p#desc, table#data, hr#sep, p#check {
+        display: none;
+    }
+}
+</style>
+<script type="text/javascript">
+function $(id) { return document.getElementById(id); }
+function $value(id) { return $(id).value; }
+
+
+function chain_length_calculate(front_teeth, rear_teeth, chain_stay_len, pitch) {
+    const front_dia = front_teeth * pitch / Math.PI;
+    const rear_dia = rear_teeth * pitch / Math.PI;
+    const dia_diff = (front_dia - rear_dia) / 2;
+
+    const one_side = Math.sqrt(dia_diff * dia_diff + chain_stay_len * chain_stay_len);
+    const front_cir = front_teeth * pitch;
+    const rear_cir = rear_teeth * pitch;
+
+    return front_cir / 2 + rear_cir / 2 + one_side * 2;
+}
+
+
+function result_show(front_min, front_max, rear_min, rear_max,
+                          chain_stay_len, pitch, hide_odd) {
+    const coma_pitch = pitch * 2;
+    const heading = ["リア", "チェーン長<br />[mm]",
+                     "リンク数", "整数リンク", "整数リンク<br />差分[mm]",
+                     "コマ数", "整数コマ", "整数コマ<br />差分[mm]"];
+    function append_values(parent, values) {
+        const tr = document.createElement("tr");
+        for (let i of values) {
+            const td = document.createElement("td");
+            td.innerHTML = i;
+            td.setAttribute("class", "value");
+            tr.appendChild(td);
+        }
+        parent.appendChild(tr)
+    }
+
+    function add_td(tr, s) {
+        const td = document.createElement("td");
+        td.innerHTML = s;
+        tr.appendChild(td);
+        return td;
+    }
+
+    const result = document.createElement("p");
+    result.innerHTML = "チェーンステー長: CHAIN_STAY_LEN mm, ピッチ: PITCH mm".replace(
+                        /CHAIN_STAY_LEN/, chain_stay_len).replace(/PITCH/, pitch);
+    $("result").appendChild(result);
+
+    for (let front = front_min; front <= front_max; front++) {
+
+        const table = document.createElement("table");
+        table.setAttribute("class", "display");
+        table.setAttribute("id", "table_" + front);
+
+        const tr = document.createElement("tr");
+        add_td(tr, "フロント " + front).setAttribute("colspan", "8");
+        table.appendChild(tr);
+
+        append_values(table, heading);
+
+        for (let rear = rear_min; rear <= rear_max; rear++) {
+            const chain_length = chain_length_calculate(front, rear,
+                                            chain_stay_len, pitch);
+
+            const links = chain_length / pitch;
+            const links_int = Math.ceil(links);
+            if (hide_odd && (links_int % 2) == 1) {
+                // ignore odd links
+                continue;
+            }
+            const links_diff = links_int * pitch - chain_length;
+
+            const comas = chain_length / coma_pitch;
+            const comas_int = Math.ceil(comas);
+            const comas_diff = comas_int * coma_pitch - chain_length;
+
+            append_values(table, [rear, chain_length.toFixed(1),
+                    links.toFixed(1), links_int, links_diff.toFixed(2),
+                    comas.toFixed(1), comas_int, comas_diff.toFixed(2)]);
+        }
+
+        $("result").appendChild(table);
+    }
+    return null;
+}
+
+
+function calculate() {
+    // obtain values
+    let front_min = $value("front_min");
+    let front_max = $value("front_max");
+    let rear_min = $value("rear_min");
+    let rear_max = $value("rear_max");
+    const chain_stay_len = $value("chain_stay_len");
+    const pitch = $value("pitch");
+    const hide_odd = $("hide_odd").checked;
+
+    // check value
+    if (front_min < 0 || front_max < 0 ||
+        rear_min < 0 || rear_max < 0) {
+        return "ギア歯数は1-100の範囲で指定してください。";
+    }
+    if (chain_stay_len < 0) {
+        return "チェーンステー長に1以上の値を指定してください。";
+    }
+    if (pitch < 0) {
+        return "ピッチに1以上の値を指定してください。";
+    }
+
+    if (front_min > front_max) {
+        let tmp = front_min;
+        front_min = front_max;
+        front_max = tmp;
+    }
+    if (rear_min > rear_max) {
+        let tmp = rear_min;
+        rear_min = rear_max;
+        rear_max = tmp;
+    }
+
+    return result_show(front_min, front_max, rear_min, rear_max,
+                            chain_stay_len, pitch, hide_odd);
+}
+
+
+function submit() {
+    $("error").innerHTML = "";
+    $("result").innerHTML = "";
+
+    const message = calculate();
+    if (message == null) {
+    } else {
+        $("error").innerHTML = message;
+    }
+}
+</script>
+</head>
+<body>
+<h2>内装ハブチェーン長計算</h2>
+<p id="desc">内装ハブ自転車のチェーン長を計算します。</p>
+<table id="data">
+<tr>
+<td>フロントギア歯数</td>
+<td><input type="number" id="front_min" value="50" min="1" max="100" class="numeric"> 〜
+<input type="number" id="front_max" value="53" min="1" max="100" class="numeric"></td>
+</tr>
+<tr>
+<td>リアギア歯数</td>
+<td><input type="number" id="rear_min" value="14" min="1" max="100" class="numeric"> 〜
+<input type="number" id="rear_max" value="18" min="1" max="100" class="numeric"></td>
+</tr>
+<tr>
+<td>チェーンステー長</td>
+<td><input type="number" id="chain_stay_len" value="400" min="1" max="1000" class="numeric"> mm</td>
+</tr>
+<tr>
+<td>チェーンピッチ</td>
+<td><input type="number" id="pitch" value="12.7" min="1" max="100" class="numeric"> mm</td>
+</tr>
+</table>
+<p id="check">
+<input type="checkbox" id="hide_odd" value="" onclick="">奇数リンク(半コマ、オフセットリンク使用)を非表示
+</p>
+<p id="submit">
+<input type="button" id="SUBMIT" value="計算" onclick="submit();"/>
+</p>
+<hr id="sep" />
+<div id="error"></div>
+<div id="result"></div>
+</body>
+</html>
