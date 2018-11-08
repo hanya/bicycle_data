@@ -45,9 +45,66 @@ table.display td {
     }
 }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.min.js"></script>
 <script type="text/javascript">
 function $(id) { return document.getElementById(id); }
 function $value(id) { return $(id).value; }
+
+
+function get_options(title) {
+    return {
+        title: {
+            display: true,
+            position: 'bottom',
+            text: title,
+        },
+        scales: {
+            xAxes: [{
+                display: true,
+                scaleLabel: {
+                    display: true,
+                    labelString: "チェーン長差[mm]",
+                }
+            }],
+            yAxes: [{
+                display: true,
+                scaleLabel: {
+                    display: true,
+                    labelString: "リンク数",
+                },
+                ticks: {
+                    stepSize: 1,
+                },
+            }],
+        },
+        legend: {
+            labels: {
+                usePointStyle: true,
+            }
+        },
+        tooltips: {
+            mode: 'nearest',
+            callbacks: {
+                label: function(tooltipItem, chart_data) {
+                    return chart_data.datasets[tooltipItem.datasetIndex]
+                                .data[tooltipItem.index].label;
+                },
+            },
+        },
+    };
+}
+
+
+function get_dataset(legend, data, pointStyle, color) {
+    return {
+        label: legend,
+        backgroundColor: color,
+        borderColor: color,
+        pointRadius: 5,
+        pointStyle: pointStyle,
+        data: data,
+    };
+}
 
 
 function chain_length_calculate(front_teeth, rear_teeth, chain_stay_len, pitch) {
@@ -62,14 +119,14 @@ function chain_length_calculate(front_teeth, rear_teeth, chain_stay_len, pitch) 
     return front_cir / 2 + rear_cir / 2 + one_side * 2;
 }
 
+let chart = null;
 
 function result_show(front_min, front_max, rear_min, rear_max,
                           chain_stay_len, pitch) {
     const coma_pitch = pitch * 2;
-    const heading = ["リア", "チェーン<br />長[mm]",
-                     "リンク", "短リンク", "短リンク<br />差[mm]",
-                     "長リンク", "長リンク<br />差[mm]",
-                     "コマ", "長コマ", "長コマ<br />差[mm]"];
+    const heading = ["リア", "チェーン長<br />[mm]",
+                     "リンク", "短リンク", "短リンク差<br />[mm]",
+                     "長リンク", "長リンク差<br />[mm]"];
     function append_values(parent, values) {
         const tr = document.createElement("tr");
         for (let i of values) {
@@ -88,13 +145,25 @@ function result_show(front_min, front_max, rear_min, rear_max,
         return td;
     }
 
+    const even_chartdata = [];
+    const odd_chartdata = [];
+
+    function add_data(links, links_diff, label, front, rear) {
+        let point = {x: links_diff.toFixed(2), y: links,
+                     front: front, rear: rear, label: label};
+        if (links % 2 == 0) {
+            even_chartdata.push(point);
+        } else {
+            odd_chartdata.push(point);
+        }
+    }
+
     const result = document.createElement("p");
     result.innerHTML = "チェーンステー長: CHAIN_STAY_LEN mm, ピッチ: PITCH mm".replace(
                         /CHAIN_STAY_LEN/, chain_stay_len).replace(/PITCH/, pitch);
     $("result").appendChild(result);
 
     for (let front = front_min; front <= front_max; front++) {
-
         const table = document.createElement("table");
         table.setAttribute("class", "display");
         table.setAttribute("id", "table_" + front);
@@ -121,20 +190,50 @@ function result_show(front_min, front_max, rear_min, rear_max,
             const links_long = Math.ceil(links);
             const links_long_diff = links_long * pitch - chain_length;
 
-            const comas = chain_length / coma_pitch;
-            const comas_int = Math.ceil(comas);
-            const comas_diff = comas_int * coma_pitch - chain_length;
-
             append_values(table, [rear, chain_length.toFixed(1),
                     links.toFixed(1),
                     links_short, links_short_diff.toFixed(2),
-                    links_long, links_long_diff.toFixed(2),
-                    comas.toFixed(1), comas_int, comas_diff.toFixed(2)]);
+                    links_long, links_long_diff.toFixed(2)]);
+
+            add_data(links_short, links_short_diff,
+                front + "-" + rear + ": " + links_short + " リンク, " +
+                links_short_diff.toFixed(2) + " mm",
+                front, rear);
+            add_data(links_long, links_long_diff,
+                front + "-" + rear + ": " + links_long + " リンク, " +
+                links_long_diff.toFixed(2) + " mm",
+                front, rear);
         }
 
         $("result").appendChild(table);
     }
+    const datasets = [get_dataset("偶数リンク", even_chartdata, 'circle', 'rgb(0,0,0)'),
+                      get_dataset("奇数リンク", odd_chartdata, 'rect', 'rgb(255,0,0)')];
+
+    if (chart == null) {
+        chart = Chart.Scatter($("chart").getContext("2d"), {
+            data: {
+                datasets: datasets,
+            },
+            options: get_options("リンク数とチェーン長"),
+        });
+    } else {
+        chart.data = {
+            datasets: datasets,
+        };
+        chart.update();
+    }
     return null;
+}
+
+
+function chart_update(front_removed) {
+    function f(element, index, array) {
+        return element.front != front_removed;
+    }
+    chart.data.datasets[0].data = chart.data.datasets[0].data.filter(f)
+    chart.data.datasets[1].data = chart.data.datasets[1].data.filter(f)
+    chart.update();
 }
 
 
@@ -195,6 +294,7 @@ function remove_table(e) {
     const table = $(e);
     if (table != null) {
         table.parentNode.removeChild(table);
+        chart_update(parseInt(e.split("_")[1]));
     }
 }
 
@@ -239,6 +339,7 @@ function submit() {
 </p>
 <hr id="sep" />
 <div id="error"></div>
+<canvas id="chart"></canvas>
 <div id="result"></div>
 </body>
 </html>
