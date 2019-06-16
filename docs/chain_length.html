@@ -119,14 +119,26 @@ function chain_length_calculate(front_teeth, rear_teeth, chain_stay_len, pitch) 
     return front_cir / 2 + rear_cir / 2 + one_side * 2;
 }
 
+function chainstay_length_calculate(front_teeth, rear_teeth, pitch, chain_length) {
+    const front_dia = front_teeth * pitch / Math.PI;
+    const rear_dia = rear_teeth * pitch / Math.PI;
+    const dia_diff = (front_dia - rear_dia) / 2;
+
+    const one_side = (chain_length - (front_teeth * pitch) / 2 - (rear_teeth * pitch) / 2) / 2;
+
+    return Math.sqrt(one_side * one_side - dia_diff * dia_diff);
+}
+
 let chart = null;
 
 function result_show(front_min, front_max, rear_min, rear_max,
                           chain_stay_len, pitch) {
     const coma_pitch = pitch * 2;
-    const heading = ["リア", "チェーン長<br />[mm]",
-                     "リンク", "短リンク", "短リンク差<br />[mm]",
-                     "長リンク", "長リンク差<br />[mm]"];
+    const heading = ["リア", "チェーン長<br />[mm]", "リンク",
+                     "短リンク", "短リンク差<br />[mm]",
+                     "短ステー長<br />[mm]",
+                     "長リンク", "長リンク差<br />[mm]",
+                     "長ステー長<br />[mm]"];
     function append_values(parent, values) {
         const tr = document.createElement("tr");
         for (let i of values) {
@@ -189,11 +201,17 @@ function result_show(front_min, front_max, rear_min, rear_max,
             const links_short_diff = links_short * pitch - chain_length;
             const links_long = Math.ceil(links);
             const links_long_diff = links_long * pitch - chain_length;
+            const short_chainstay_len = chainstay_length_calculate(
+                    front, rear, pitch, links_short * pitch);
+            const long_chainstay_len = chainstay_length_calculate(
+                    front, rear, pitch, links_long * pitch);
 
             append_values(table, [rear, chain_length.toFixed(1),
                     links.toFixed(1),
                     links_short, links_short_diff.toFixed(2),
-                    links_long, links_long_diff.toFixed(2)]);
+                    short_chainstay_len.toFixed(2),
+                    links_long, links_long_diff.toFixed(2),
+                    long_chainstay_len.toFixed(2)]);
 
             add_data(links_short, links_short_diff,
                 front + "-" + rear + ": " + links_short + " リンク, " +
