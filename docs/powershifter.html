@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+<title>POWERSHIFTER 内装ギア計算 v0.1</title>
+<style type="text/css">
+@media screen and (min-width: 640px) {
+    body {
+        margin: 1em 1em;
+        width: 750px;
+    }
+}
+
+table.display {
+    border: solid 1px #000000;
+    border-collapse: collapse;
+}
+
+table.display td {
+    border: solid 1px #000000;
+    padding: 0.25em 0.5em;
+}
+
+.numeric {
+    width: 5em;
+}
+
+.valuelist {
+    vertical-align: top;
+}
+
+.value {
+    text-align: right;
+}
+
+@media print {
+    body {
+        margin: 0em;
+    }
+
+    p#desc, table#data, hr#sep {
+        display: none;
+    }
+
+    input, select {
+        border-style: none;
+        -moz-appearance: textfield;
+    }
+
+    input::-webkit-outer-spin-button,
+    input::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+    }
+}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.min.js"></script>
+<script type="text/javascript">
+function $(id) { return document.getElementById(id); }
+function $value(id) { return $(id).value; }
+
+const inter_total = 146;
+const inter_gears = [0.686, 1.000];
+
+//Range model,"",number of gears,total%,gears
+const cassettes = [
+["11 speed 11-27","",11,358,11,12,13,14,15,17,19,21,23,25,27],
+["11 speed 11-30","",11,398,11,12,13,14,15,17,19,21,23,26,30],
+["11 speed 11-32","",11,424,11,12,13,14,15,17,19,21,24,27,32],
+["11 speed 11-34","",11,451,11,12,13,14,15,17,19,21,24,28,34],
+["12 speed 11-28","",12,371,11,12,13,14,15,16,18,20,22,24,26,28],
+["12 speed 11-30","",12,398,11,12,13,14,15,16,18,20,22,24,27,30],
+["12 speed 11-32","",12,424,11,12,13,14,15,16,18,20,22,25,28,32],
+["12 speed 11-34","",12,451,11,12,13,14,15,17,19,21,24,27,30,34],
+];
+
+
+function cassette_find(cassette_id) {
+    for (let cassette of cassettes) {
+        if (cassette[0] == cassette_id) {
+            return cassette;
+        }
+    }
+    return null;
+}
+
+
+function get_options(cassette_id) {
+    return {
+        title: {
+            display: true,
+            position: 'bottom',
+            text: cassette_id,
+        },
+        scales: {
+            xAxes: [{
+                display: true,
+                scaleLabel: {
+                    display: true,
+                    labelString: "ギア",
+                }
+            }],
+            yAxes: [{
+                id: 'y-axis-1',
+                display: true,
+                position: 'left',
+                scaleLabel: {
+                    display: true,
+                    labelString: "GD値[m]",
+                }
+            },{
+                id: 'y-axis-2',
+                display: true,
+                position: 'right',
+                scaleLabel: {
+                    display: true,
+                    labelString: "速度[km/h]",
+                }
+            }],
+        },
+    };
+}
+
+
+function get_data(gears1, gds1, speeds1, gds2, speeds2) {
+    return {
+        labels: gears1,
+        datasets: [{
+            label: "GD 値 - ギア1",
+            backgroundColor: 'rgb(0, 0, 0)',
+            borderColor: 'rgb(0, 0, 0)',
+            fill: false,
+            lineTension: 0,
+            pointRadius: 5,
+            data: gds1,
+            yAxisID: 'y-axis-1',
+        },{
+            label: "速度 - ギア1",
+            backgroundColor: 'rgb(255, 0, 0)',
+            borderColor: 'rgb(255, 0, 0)',
+            fill: false,
+            lineTension: 0,
+            pointRadius: 5,
+            data: speeds1,
+            yAxisID: 'y-axis-2',
+        },{
+            label: "GD 値 - ギア2",
+            backgroundColor: 'rgb(0, 0, 255)',
+            borderColor: 'rgb(0, 0, 255)',
+            fill: false,
+            lineTension: 0,
+            pointRadius: 5,
+            data: gds2,
+            yAxisID: 'y-axis-1',
+        },{
+            label: "速度 - ギア2",
+            backgroundColor: 'rgb(0, 255, 0)',
+            borderColor: 'rgb(0, 255, 0)',
+            fill: false,
+            lineTension: 0,
+            pointRadius: 5,
+            data: speeds2,
+            yAxisID: 'y-axis-2',
+        }],
+    };
+}
+
+
+let chart = null;
+
+window.addEventListener("load", function(ev) {
+    // update cassette selector
+    const sel = $("cassette");
+    sel.innerHTML = "";
+    for (let cassette of cassettes) {
+        sel.add(new Option(cassette[0], cassette[0]));
+    }
+
+    update();
+});
+
+
+function update() {
+    const cassette_id = $value("cassette");
+    const cassette = cassette_find(cassette_id);
+    if (cassette == null) {
+        return;
+    }
+    const gear_ratio = $("gear_ratio");
+    gear_ratio.innerHTML = "<tr><td colspan=\"3\">外装/内装</td>" +
+        "<td colspan=\"2\">ギア1 - " + inter_gears[0].toFixed(3) +
+        "</td><td colspan=\"2\">ギア2 - " + inter_gears[1].toFixed(3) + "</td></tr>";
+
+    const front = $value("front");
+    const cir = $value("tyre_cir");
+    const cir_meter = cir / 1000;
+    const cadence = $value("cadence");
+
+    function add_td(tr, col) {
+        const td1 = document.createElement("td");
+        td1.innerHTML = col;
+        td1.setAttribute("class", "value");
+        tr.appendChild(td1);
+    }
+
+    // show hub gear ratio
+    function add_tr(args) {
+        const tr = document.createElement("tr");
+        for (let arg of args) {
+            add_td(tr, arg);
+        }
+        gear_ratio.appendChild(tr);
+    }
+
+    document.getElementById("inter_total").textContent = inter_total + "%";
+    document.getElementById("outer_total").textContent = cassette[3] + "%";
+    add_tr(["ギア", "リア", "ギア比", "GD値[m]", "速度[km/h]", "GD値[m]", "速度[km/h]"]);
+
+    const gears = [[], []];
+    const gds = [[], []];
+    const ratios = [[], []];
+    const speeds = [[], []];
+
+    const gear_count = cassette[2];
+    for (let i = 0; i < gear_count; i++) {
+        let args = [];
+        for (let g = 0; g < 2; g++) {
+            // reverse order
+            const n = gear_count - i - 1;
+            const ratio = inter_gears[g];
+            const rear = cassette[4 + n];
+            const cog_ratio = front * 1.0 / rear;
+            const total_ratio = cog_ratio * ratio;
+            const gd = total_ratio * cir_meter;
+            const speed = gd * cadence * 60 / 1000.;
+
+            let base = g * 5;
+            if (g == 0) {
+                args[0 + base] = i + 1;
+                args[1 + base] = rear + "T";
+                args[2 + base] = cog_ratio.toFixed(3);
+                args[3 + base] = gd.toFixed(2);
+                args[4 + base] = speed.toFixed(1);
+            } else {
+                args[0 + base] = gd.toFixed(2);
+                args[1 + base] = speed.toFixed(1);
+            }
+
+            gears[g][i] = i + 1;
+            gds[g][i] = gd.toFixed(2);
+            ratios[g][i] = ratio.toFixed(3);
+            speeds[g][i] = speed.toFixed(1);
+        }
+        add_tr(args);
+    }
+
+    if (chart == null) {
+        chart = new Chart($("chart").getContext("2d"), {
+            type: "line",
+            data: get_data(gears[0], gds[0], speeds[0], gds[1], speeds[1]),
+            options: get_options(cassette_id),
+        });
+    } else {
+        chart.options.title.text = cassette_id;
+        chart.data = get_data(gears[0], gds[0], speeds[0], gds[1], speeds[1]);
+        chart.update();
+    }
+}
+</script>
+</head>
+<body>
+<h2>POWERSHIFTER ギア計算</h2>
+<p id="desc">POWERSHIFTER 内装ハブ自転車のGD値を計算します。</p>
+<table>
+<tr><td class="valuelist">
+<table>
+<tr><td>フロントギア歯数</td>
+<td><input type="number" id="front" value="52" min="1" max="100" class="numeric" onChange="update();"></td>
+</tr>
+<tr>
+<tr><td>タイヤ周長[mm]</td>
+<td><input type="number" id="tyre_cir" value="1545" min="1" max="3000" class="numeric" onChange="update();"></td>
+</tr>
+<tr><td>ケイデンス</td>
+<td><input type="number" id="cadence" value="70" min="1" max="500" class="numeric" onChange="update();"></td>
+</tr>
+<tr><td>内装ギア比</td>
+<td id="inter_total"></td>
+</tr>
+<tr><td>外装ギア比</td>
+<td id="outer_total"></td>
+</tr>
+</table>
+</td>
+<td class="valuelist">
+<table>
+<tr>
+<td>カセット</td>
+<td><select id="cassette" onChange="update();"></select></td>
+</tr>
+</table>
+<table id="gear_ratio" class="display">
+</table>
+</td></tr>
+</table>
+<hr id="sep" />
+<div id="error"></div>
+<div id="result">
+</div>
+<canvas id="chart"></canvas>
+</body>
+</html>
