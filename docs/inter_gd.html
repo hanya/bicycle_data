@@ -218,6 +218,7 @@ function update() {
     }
 
     document.getElementById("front_rear").textContent = (front * 1.0 / rear).toPrecision(4);
+    document.getElementById("inter_total").textContent = hub[3] + "%";
     add_tr("ギア", "ギア比", "GD値[m]", "速度[km/h]");
 
     const gears = [];
@@ -229,7 +230,7 @@ function update() {
     const gear_count = hub[2];
     for (let i = 0; i < gear_count; i++) {
         const ratio = hub[4 + i];
-        const total_ratio = cog_ratio * hub[4 + i];
+        const total_ratio = cog_ratio * ratio;
         const gd = total_ratio * cir_meter;
         const speed = gd * cadence * 60 / 1000.;
 
@@ -276,6 +277,9 @@ function update() {
 </tr>
 <tr><td>フロント/リア</td>
 <td id="front_rear"></td>
+</tr>
+<tr><td>内装ギア比</td>
+<td id="inter_total"></td>
 </tr>
 </table>
 </td>
