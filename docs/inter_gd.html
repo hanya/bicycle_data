@@ -50,12 +50,17 @@ table.display td {
     input::-webkit-inner-spin-button {
         -webkit-appearance: none;
     }
+
+    .addr {
+        display: none;
+    }
 }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.min.js"></script>
 <script type="text/javascript">
 function $(id) { return document.getElementById(id); }
 function $value(id) { return $(id).value; }
+function $set(id, value) { $(id).value = value; }
 
 //Manufacture model,"",number of gears,total%,gears
 const hubs = [
@@ -180,9 +185,59 @@ window.addEventListener("load", function(ev) {
         sel.add(new Option(hub[0], hub[0]));
     }
 
+    defaultFromQueries();
     update();
 });
 
+function defaultFromQueries() {
+    const qs = window.location.search.slice(1);
+    qs.split('&').forEach((q) => {
+        const kv = q.split('=');
+        const key = kv[0];
+        const value = kv[1];
+        switch (key) {
+            case 'front': {
+                $set('front', value);
+                break;
+            }
+            case 'rear': {
+                $set('rear', value);
+                break;
+            }
+            case 'tyre': {
+                $set('tyre_cir', value);
+                break;
+            }
+            case 'cadence': {
+                $set('cadence', value);
+                break;
+            }
+            case 'hub': {
+                const hub = decodeURIComponent(value);
+                $set('hub', hub);
+                break;
+            }
+            default:
+                break;
+        }
+    });
+}
+
+function setLink() {
+    const qss = [
+        'front=' + $value('front'),
+        'rear=' + $value('rear'),
+        'tyre=' + $value('tyre_cir'),
+        'cadence=' + $value('cadence'),
+        'hub=' + encodeURIComponent($value('hub')),
+    ];
+    const qs = qss.join('&');
+    const base = window.location.href.substr(
+        0, window.location.href.length - window.location.search.length);
+    const addr = base + '?' + qs;
+    console.log(addr);
+    $('addr').href = addr;
+}
 
 function update() {
     const hub_id = $value("hub");
@@ -240,6 +295,8 @@ function update() {
         ratios[i] = ratio.toFixed(3);
         speeds[i] = speed.toFixed(1);
     }
+    
+    setLink();
 
     if (chart == null) {
         chart = new Chart($("chart").getContext("2d"), {
@@ -280,6 +337,7 @@ function update() {
 <tr><td>内装ギア比</td>
 <td id="inter_total"></td>
 </tr>
+<tr><td colspan="2"><a id="addr" href="" class="addr">入力済みリンク</a></td></tr>
 </table>
 </td>
 <td class="valuelist">
