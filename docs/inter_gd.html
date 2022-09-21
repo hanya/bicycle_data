@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html><head><meta charset="UTF-8">
 <meta http-equiv="content-type" content="text/html; charset=UTF-8">
-<title>内装ギア計算 v0.1</title>
+<title id="title">Internal Geared Hub Calculation</title>
 <style type="text/css">
 @media screen and (min-width: 640px) {
     body {
@@ -58,6 +58,26 @@ table.display td {
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.min.js"></script>
 <script type="text/javascript">
+
+const TT = {
+    "Internal Geared Hub Calculation": "内装ギア計算",
+    "Calculates GD value for internal geared hub.": "内装ハブ自転車のGD値を計算します。",
+    "Front": "フロントギア歯数",
+    "Rear": "リアギア歯数",
+    "Tier circumference [mm]": "タイヤ周長",
+    "Cadence": "ケイデンス",
+    "Front/Rear": "フロント/リア",
+    "Total ratio": "内装ギア比",
+    "Link": "入力済みリンク",
+    "GD value": "GD 値",
+    "Speed": "速度",
+    "Hub": "内装ハブ",
+    "Gear": "ギア",
+    "Ratio": "ギア比",
+    "GD value [m]": "GD値[m]",
+    "Speed [km/h]": "速度[km/h]",
+};
+
 function $(id) { return document.getElementById(id); }
 function $value(id) { return $(id).value; }
 function $set(id, value) { $(id).value = value; }
@@ -98,6 +118,7 @@ const hubs = [
 ["Kindernay VII","",7,428,0.484,0.616,0.785,1.000,1.274,1.623,2.068],
 //["Kelvelo kernel-6","",6,323,],
 //["Kelvelo kernel-12","",12,545,],
+["3X3 NINE","",9,554,0.526,0.649,0.806,1.000,1.235,1.538,1.88,2.326,2.899],
 ["POWERSHIFT","",2,146,0.686,1.000],
 ["Single","",1,100,1.000],
 ];
@@ -112,8 +133,33 @@ function hub_find(hub_id) {
     return null;
 }
 
+let isJP = null;
+
+window.onload = function() {
+    isJP = /^ja\b/.test(navigator.language);
+
+    if (isJP) {
+        const ids = ['title', 'heading', 'desc', 'addr'];
+        for (const id of ids) {
+            const entry = document.getElementById(id);
+            const s = TT[entry.textContent];
+            if (s) {
+                entry.textContent = s;
+            }
+        }
+        const tds = document.getElementsByTagName('td');
+        for (const td of tds) {
+            const s = TT[td.textContent];
+            if (s) {
+                td.textContent = s;
+            }
+        }
+    }
+}
+
 
 function get_options(hub_id) {
+    
     return {
         title: {
             display: true,
@@ -125,7 +171,7 @@ function get_options(hub_id) {
                 display: true,
                 scaleLabel: {
                     display: true,
-                    labelString: "ギア",
+                    labelString: isJP ? TT['Gear'] : 'Gear',
                 }
             }],
             yAxes: [{
@@ -134,7 +180,7 @@ function get_options(hub_id) {
                 position: 'left',
                 scaleLabel: {
                     display: true,
-                    labelString: "GD値[m]",
+                    labelString: isJP ? TT['GD value [m]'] : 'GD value [m]',
                 }
             },{
                 id: 'y-axis-2',
@@ -142,7 +188,7 @@ function get_options(hub_id) {
                 position: 'right',
                 scaleLabel: {
                     display: true,
-                    labelString: "速度[km/h]",
+                    labelString: isJP ? TT['Speed [km/h]'] : 'Speed [km/h]'
                 }
             }],
         },
@@ -154,7 +200,7 @@ function get_data(gears, gds, speeds) {
     return {
         labels: gears,
         datasets: [{
-            label: "GD 値",
+            label: isJP ? TT['GD value'] : 'GD value',
             backgroundColor: 'rgb(0, 0, 0)',
             borderColor: 'rgb(0, 0, 0)',
             fill: false,
@@ -163,7 +209,7 @@ function get_data(gears, gds, speeds) {
             data: gds,
             yAxisID: 'y-axis-1',
         },{
-            label: "速度",
+            label: isJP ? TT['Speed'] : 'Speed',
             backgroundColor: 'rgb(255, 0, 0)',
             borderColor: 'rgb(255, 0, 0)',
             fill: false,
@@ -273,7 +319,11 @@ function update() {
 
     document.getElementById("front_rear").textContent = (front * 1.0 / rear).toPrecision(4);
     document.getElementById("inter_total").textContent = hub[3] + "%";
-    add_tr("ギア", "ギア比", "GD値[m]", "速度[km/h]");
+    if (isJP) {
+        add_tr(TT['Gear'], TT['Ratio'], TT['GD value [m]'], TT['Speed [km/h]']);
+    } else {
+        add_tr('Gear', 'Ratio', 'GD value [m]', 'Speed [km/h]');
+    }
 
     const gears = [];
     const gds = [];
@@ -313,37 +363,37 @@ function update() {
 </script>
 </head>
 <body>
-<h2>内装ギア計算</h2>
-<p id="desc">内装ハブ自転車のGD値を計算します。</p>
+<h2 id="heading">Internal Geared Hub Calculation</h2>
+<p id="desc">Calculates GD value for internal geared hub.</p>
 <table>
 <tr><td class="valuelist">
 <table>
-<tr><td>フロントギア歯数</td>
+<tr><td>Front</td>
 <td><input type="number" id="front" value="52" min="1" max="100" class="numeric" onChange="update();"></td>
 </tr>
 <tr>
-<td>リアギア歯数</td>
+<td>Rear</td>
 <td><input type="number" id="rear" value="15" min="1" max="100" class="numeric" onChange="update();"></td>
 </tr>
-<tr><td>タイヤ周長[mm]</td>
+<tr><td>Tier circumference [mm]</td>
 <td><input type="number" id="tyre_cir" value="1545" min="1" max="3000" class="numeric" onChange="update();"></td>
 </tr>
-<tr><td>ケイデンス</td>
+<tr><td>Cadence</td>
 <td><input type="number" id="cadence" value="70" min="1" max="500" class="numeric" onChange="update();"></td>
 </tr>
-<tr><td>フロント/リア</td>
+<tr><td>Front/Rear</td>
 <td id="front_rear"></td>
 </tr>
-<tr><td>内装ギア比</td>
+<tr><td>Total ratio</td>
 <td id="inter_total"></td>
 </tr>
-<tr><td colspan="2"><a id="addr" href="" class="addr">入力済みリンク</a></td></tr>
+<tr><td colspan="2"><a id="addr" href="" class="addr">Link</a></td></tr>
 </table>
 </td>
 <td class="valuelist">
 <table>
 <tr>
-<td>内装ハブ</td>
+<td>Hub</td>
 <td><select id="hub" onChange="update();"></select></td>
 </tr>
 </table>
